@@ -5,9 +5,24 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+type TLSTerminationType string
+
+var (
+	DefaultTLSTermintation        TLSTerminationType
+	ReencryptTLSTerminationType   TLSTerminationType = "reencrypt"
+	PassthroughTLSTerminationType TLSTerminationType = "passthrough"
+)
+
 // KeycloakSpec defines the desired state of Keycloak.
 // +k8s:openapi-gen=true
 type KeycloakSpec struct {
+	// When set to true, this Keycloak will be marked as unmanaged and will not be managed by this operator.
+	// It can then be used for targeting purposes.
+	// +optional
+	Unmanaged bool `json:"unmanaged,omitempty"`
+	// Contains configuration for external Keycloak instances. Unmanaged needs to be set to true to use this.
+	// +optional
+	External KeycloakExternal `json:"external"`
 	// A list of extensions, where each one is a URL to a JAR files that will be deployed in Keycloak.
 	// +listType=set
 	// +optional
@@ -54,10 +69,10 @@ type KeycloakSpec struct {
 	PodDisruptionBudget PodDisruptionBudgetConfig `json:"podDisruptionBudget,omitempty"`
 	// Resources (Requests and Limits) for KeycloakDeployment.
 	// +optional
-	KeycloakDeploymentSpec DeploymentSpec `json:"keycloakDeploymentSpec,omitempty"`
+	KeycloakDeploymentSpec KeycloakDeploymentSpec `json:"keycloakDeploymentSpec,omitempty"`
 	// Resources (Requests and Limits) for PostgresDeployment.
 	// +optional
-	PostgresDeploymentSpec DeploymentSpec `json:"postgresDeploymentSpec,omitempty"`
+	PostgresDeploymentSpec PostgresqlDeploymentSpec `json:"postgresDeploymentSpec,omitempty"`
 	// Specify Migration configuration
 	// +optional
 	Migration MigrateConfig `json:"migration,omitempty"`
@@ -72,13 +87,67 @@ type DeploymentSpec struct {
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
-type TLSTerminationType string
+type KeycloakDeploymentSpec struct {
+	DeploymentSpec `json:",inline"`
+	// Experimental section
+	// NOTE: This section might change or get removed without any notice. It may also cause
+	// the deployment to behave in an unpredictable fashion. Please use with care.
+	// +optional
+	Experimental ExperimentalSpec `json:"experimental,omitempty"`
+}
 
-var (
-	DefaultTLSTermintation        TLSTerminationType
-	ReencryptTLSTerminationType   TLSTerminationType = "reencrypt"
-	PassthroughTLSTerminationType TLSTerminationType = "passthrough"
-)
+type PostgresqlDeploymentSpec struct {
+	DeploymentSpec `json:",inline"`
+}
+
+type ExperimentalSpec struct {
+	// Arguments to the entrypoint. Translates into Container CMD.
+	// +optional
+	Args []string `json:"args,omitempty"`
+	// Container command. Translates into Container ENTRYPOINT.
+	// +optional
+	Command []string `json:"command,omitempty"`
+	// List of environment variables to set in the container.
+	// +optional
+	// +patchMergeKey=name
+	// +patchStrategy=merge
+	Env []corev1.EnvVar `json:"env,omitempty" patchStrategy:"merge" patchMergeKey:"name"`
+	// Additional volume mounts
+	// +optional
+	Volumes VolumesSpec `json:"volumes,omitempty"`
+}
+
+type VolumesSpec struct {
+	Items []VolumeSpec `json:"items,omitempty"`
+	// Permissions mode.
+	// +optional
+	DefaultMode *int32 `json:"defaultMode,omitempty"`
+}
+
+type ConfigMapVolumeSpec struct {
+	// ConfigMap name
+	Name string `json:"name,omitempty"`
+	// An absolute path where to mount it
+	MountPath string `json:"mountPath"`
+	// ConfigMap mount details
+	// +optional
+	Items []corev1.KeyToPath `json:"items,omitempty" protobuf:"bytes,2,rep,name=items"`
+}
+
+type VolumeSpec struct {
+	// ConfigMap mount
+	// +optional
+	ConfigMap *ConfigMapVolumeSpec `json:"configMap,omitempty"`
+}
+
+type KeycloakExternal struct {
+	// If set to true, this Keycloak will be treated as an external instance.
+	// The unmanaged field also needs to be set to true if this field is true.
+	Enabled bool `json:"enabled,omitempty"`
+	// The URL to use for the keycloak admin API. Needs to be set if external is true.
+	// +optional
+	URL string `json:"url,omitempty"`
+}
 
 type KeycloakExternalAccess struct {
 	// If set to true, the Operator will create an Ingress or a Route
@@ -92,6 +161,11 @@ type KeycloakExternalAccess struct {
 	// Ingress TLS configuration is the same in both cases and it is up to the user
 	// to configure TLS section of the Ingress.
 	TLSTermination TLSTerminationType `json:"tlsTermination,omitempty"`
+	// If set, the Operator will use value of host for Ingress/Route host
+	// instead of default value keycloak.local for ingress and automatically
+	// chosen name for Route
+	// +optional
+	Host string `json:"host,omitempty"`
 }
 
 type KeycloakExternalDatabase struct {
@@ -106,10 +180,21 @@ type PodDisruptionBudgetConfig struct {
 }
 
 type MigrateConfig struct {
+	// Specify migration strategy
+	// +optional
+	MigrationStrategy MigrationStrategy `json:"strategy,omitempty"`
 	// Set it to config backup policy for migration
 	// +optional
 	Backups BackupConfig `json:"backups,omitempty"`
 }
+
+type MigrationStrategy string
+
+var (
+	NoStrategy       MigrationStrategy
+	StrategyRecreate MigrationStrategy = "recreate"
+	StrategyRolling  MigrationStrategy = "rolling"
+)
 
 type BackupConfig struct {
 	// If set to true, the operator will do database backup before doing migration

@@ -24,6 +24,8 @@ import (
 
 type Condition func(t *testing.T, c kubernetes.Interface) error
 
+type ResponseCondition func(response *http.Response) error
+
 func WaitForCondition(t *testing.T, c kubernetes.Interface, cond Condition) error {
 	t.Logf("waiting up to %v for condition", pollTimeout)
 	var err error
@@ -68,6 +70,28 @@ func WaitForPersistentVolumeClaimCreated(t *testing.T, c kubernetes.Interface, p
 	})
 }
 
+func WaitForKeycloakToBeReady(t *testing.T, framework *framework.Framework, namespace string, name string) error {
+	keycloakCR := &keycloakv1alpha1.Keycloak{}
+
+	return WaitForCondition(t, framework.KubeClient, func(t *testing.T, c kubernetes.Interface) error {
+		err := GetNamespacedObject(framework, namespace, name, keycloakCR)
+		if err != nil {
+			return err
+		}
+
+		if !keycloakCR.Status.Ready {
+			keycloakCRParsed, err := json.Marshal(keycloakCR)
+			if err != nil {
+				return err
+			}
+
+			return errors.Errorf("keycloak is not ready \nCurrent CR value: %s", string(keycloakCRParsed))
+		}
+
+		return nil
+	})
+}
+
 func WaitForRealmToBeReady(t *testing.T, framework *framework.Framework, namespace string) error {
 	keycloakRealmCR := &keycloakv1alpha1.KeycloakRealm{}
 
@@ -90,11 +114,11 @@ func WaitForRealmToBeReady(t *testing.T, framework *framework.Framework, namespa
 	})
 }
 
-func WaitForClientToBeReady(t *testing.T, framework *framework.Framework, namespace string) error {
+func WaitForClientToBeReady(t *testing.T, framework *framework.Framework, namespace string, name string) error {
 	keycloakClientCR := &keycloakv1alpha1.KeycloakClient{}
 
 	return WaitForCondition(t, framework.KubeClient, func(t *testing.T, c kubernetes.Interface) error {
-		err := GetNamespacedObject(framework, namespace, testKeycloakClientCRName, keycloakClientCR)
+		err := GetNamespacedObject(framework, namespace, name, keycloakClientCR)
 		if err != nil {
 			return err
 		}
@@ -134,7 +158,7 @@ func WaitForUserToBeReady(t *testing.T, framework *framework.Framework, namespac
 	})
 }
 
-func WaitForSuccessResponseToContain(t *testing.T, framework *framework.Framework, url string, expectedString string) error {
+func WaitForResponse(t *testing.T, framework *framework.Framework, url string, condition ResponseCondition) error {
 	return WaitForCondition(t, framework.KubeClient, func(t *testing.T, c kubernetes.Interface) error {
 		response, err := http.Get(url) //nolint
 		if err != nil {
@@ -142,6 +166,17 @@ func WaitForSuccessResponseToContain(t *testing.T, framework *framework.Framewor
 		}
 		defer response.Body.Close()
 
+		err = condition(response)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+}
+
+func WaitForSuccessResponseToContain(t *testing.T, framework *framework.Framework, url string, expectedString string) error {
+	return WaitForResponse(t, framework, url, func(response *http.Response) error {
 		if response.StatusCode != 200 {
 			return errors.Errorf("invalid response from url %s (%v)", url, response.Status)
 		}
@@ -154,6 +189,15 @@ func WaitForSuccessResponseToContain(t *testing.T, framework *framework.Framewor
 
 		assert.Contains(t, responseString, expectedString)
 
+		return nil
+	})
+}
+
+func WaitForSuccessResponse(t *testing.T, framework *framework.Framework, url string) error {
+	return WaitForResponse(t, framework, url, func(response *http.Response) error {
+		if response.StatusCode != 200 {
+			return errors.Errorf("invalid response from url %s (%v)", url, response.Status)
+		}
 		return nil
 	})
 }
@@ -185,4 +229,8 @@ func Delete(f *framework.Framework, obj runtime.Object) error {
 
 func CreateLabel(namespace string) map[string]string {
 	return map[string]string{"app": "keycloak-in-" + namespace}
+}
+
+func CreateExternalLabel(namespace string) map[string]string {
+	return map[string]string{"app": "external-keycloak-in-" + namespace}
 }

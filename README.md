@@ -133,6 +133,17 @@ Debug the e2e operator tests in [Goland](https://www.jetbrains.com/go/)
 | `make test/coverage/prepare` | Prepares coverage report from unit and e2e test results     |
 | `make test/coverage`         | Generates coverage report                                   |
 
+##### Running tests without cluster admin permissions
+It's possible to deploy CRDs, roles, role bindings, etc. separately from running the tests:
+1. Run `make cluster/prepare` as a cluster admin.
+2. Run `make test/ibm-validation` as a user. The user needs the following permissions to run te tests:
+```
+apiGroups: ["", "apps", "keycloak.org"]
+resources: ["persistentvolumeclaims", "deployments", "statefulsets", "keycloaks", "keycloakrealms", "keycloakusers", "keycloakclients", "keycloakbackups"]
+verbs: ["*"]
+```
+Please bear in mind this is intended to be used for internal purposes as there's no guarantee it'll work without any issues.
+
 #### Local Development
 | *Command*                 | *Description*                                                                    |
 | ------------------------- | -------------------------------------------------------------------------------- |
@@ -146,6 +157,14 @@ Debug the e2e operator tests in [Goland](https://www.jetbrains.com/go/)
 | `make code/check`         | Checks for linting errors in the code                                            |
 | `make code/fix`           | Formats code using [gofmt](https://golang.org/cmd/gofmt/)                        |
 | `make code/lint`          | Checks for linting errors in the code                                            |
+
+#### Application Monitoring
+
+NOTE: This functionality works only in OpenShift environment.
+
+| *Command*                         | *Description*                                           |
+| --------------------------------- | ------------------------------------------------------- |
+| `make cluster/prepare/monitoring` | Installs and configures Application Monitoring Operator |
 
 #### CI
 | *Command*           | *Description*                                                              |
@@ -175,7 +194,6 @@ Before contributing to Keycloak Operator please read our [contributing guideline
 * [Keycloak Documentation](https://github.com/keycloak/keycloak-documentation) - Documentation for Keycloak
 * [Keycloak QuickStarts](https://github.com/keycloak/keycloak-quickstarts) - QuickStarts for getting started with Keycloak
 * [Keycloak Docker](https://github.com/jboss-dockerfiles/keycloak) - Docker images for Keycloak
-* [Keycloak Gatekeeper](https://github.com/keycloak/keycloak-gatekeeper) - Proxy service to secure apps and services with Keycloak
 * [Keycloak Node.js Connect](https://github.com/keycloak/keycloak-nodejs-connect) - Node.js adapter for Keycloak
 * [Keycloak Node.js Admin Client](https://github.com/keycloak/keycloak-nodejs-admin-client) - Node.js library for Keycloak Admin REST API
 

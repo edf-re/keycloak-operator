@@ -7,6 +7,10 @@ import (
 // KeycloakRealmSpec defines the desired state of KeycloakRealm.
 // +k8s:openapi-gen=true
 type KeycloakRealmSpec struct {
+	// When set to true, this KeycloakRealm will be marked as unmanaged and not be managed by this operator.
+	// It can then be used for targeting purposes.
+	// +optional
+	Unmanaged bool `json:"unmanaged,omitempty"`
 	// Selector for looking up Keycloak Custom Resources.
 	// +kubebuilder:validation:Required
 	InstanceSelector *metav1.LabelSelector `json:"instanceSelector,omitempty"`
@@ -55,6 +59,10 @@ type KeycloakAPIRealm struct {
 	// +optional
 	AdminEventsDetailsEnabled *bool `json:"adminEventsDetailsEnabled,omitempty"`
 
+	// Client scopes
+	// +optional
+	ClientScopes []KeycloakClientScope `json:"clientScopes,omitempty"`
+
 	// Authentication flows
 	// +optional
 	AuthenticationFlows []KeycloakAPIAuthenticationFlow `json:"authenticationFlows,omitempty"`
@@ -62,6 +70,94 @@ type KeycloakAPIRealm struct {
 	// Authenticator config
 	// +optional
 	AuthenticatorConfig []KeycloakAPIAuthenticatorConfig `json:"authenticatorConfig,omitempty"`
+
+	// Point keycloak to an external user provider to validate
+	// credentials or pull in identity information.
+	// +optional
+	UserFederationProviders []KeycloakAPIUserFederationProvider `json:"userFederationProviders,omitempty"`
+
+	// User federation mappers are extension points triggered by the
+	// user federation at various points.
+	// +optional
+	UserFederationMappers []KeycloakAPIUserFederationMapper `json:"userFederationMappers,omitempty"`
+
+	// User registration
+	// +optional
+	RegistrationAllowed *bool `json:"registrationAllowed,omitempty"`
+	// Email as username
+	// +optional
+	RegistrationEmailAsUsername *bool `json:"registrationEmailAsUsername,omitempty"`
+	// Edit username
+	// +optional
+	EditUsernameAllowed *bool `json:"editUsernameAllowed,omitempty"`
+	// Forgot password
+	// +optional
+	ResetPasswordAllowed *bool `json:"resetPasswordAllowed,omitempty"`
+	// Remember me
+	// +optional
+	RememberMe *bool `json:"rememberMe,omitempty"`
+	// Verify email
+	// +optional
+	VerifyEmail *bool `json:"verifyEmail,omitempty"`
+	// Login with email
+	// +optional
+	LoginWithEmailAllowed *bool `json:"loginWithEmailAllowed,omitempty"`
+	// Duplicate emails
+	// +optional
+	DuplicateEmailsAllowed *bool `json:"duplicateEmailsAllowed,omitempty"`
+	// Require SSL
+	// +optional
+	SslRequired string `json:"sslRequired,omitempty"`
+}
+
+// https://www.keycloak.org/docs-api/10.0/rest-api/index.html#_userfederationproviderrepresentation
+type KeycloakAPIUserFederationProvider struct {
+	// changedSyncPeriod optional integer(int32)
+	// lastSync int32
+
+	// User federation provider config.
+	// +optional
+	Config map[string]string `json:"config,omitempty"`
+
+	// The display name of this provider instance.
+	// +optional
+	DisplayName string `json:"displayName,omitempty"`
+
+	// +optional
+	FullSyncPeriod *int32 `json:"fullSyncPeriod,omitempty"`
+
+	// The ID of this provider
+	// +optional
+	ID string `json:"id,omitempty"`
+
+	// The priority of this provider when looking up users or adding a user.
+	// +optional
+	Priority *int32 `json:"priority,omitempty"`
+
+	// The name of the user provider, such as "ldap", "kerberos" or a custom SPI.
+	// +optional
+	ProviderName string `json:"providerName,omitempty"`
+}
+
+//
+// https://www.keycloak.org/docs/11.0/server_admin/#_ldap_mappers
+// https://www.keycloak.org/docs-api/11.0/rest-api/index.html#_userfederationmapperrepresentation
+type KeycloakAPIUserFederationMapper struct {
+	// User federation mapper config.
+	// +optional
+	Config map[string]string `json:"config,omitempty"`
+
+	// +optional
+	Name string `json:"name,omitempty"`
+
+	// +optional
+	ID string `json:"id,omitempty"`
+
+	// +optional
+	FederationMapperType string `json:"federationMapperType,omitempty"`
+
+	// The displayName for the user federation provider this mapper applies to.
+	FederationProviderDisplayName string `json:"federationProviderDisplayName,omitempty"`
 }
 
 type KeycloakAPIAuthenticationFlow struct {
@@ -140,6 +236,22 @@ type RedirectorIdentityProviderOverride struct {
 	// Flow to be overridden.
 	// +optional
 	ForFlow string `json:"forFlow,omitempty"`
+}
+
+type KeycloakClientScope struct {
+	// +optional
+	Attributes map[string]string `json:"attributes,omitempty"`
+	// +optional
+	Description string `json:"description,omitempty"`
+	// +optional
+	ID string `json:"id,omitempty"`
+	// +optional
+	Name string `json:"name,omitempty"`
+	// +optional
+	Protocol string `json:"protocol,omitempty"`
+	// Protocol Mappers.
+	// +optional
+	ProtocolMappers []KeycloakProtocolMapper `json:"protocolMappers,omitempty"`
 }
 
 type KeycloakIdentityProvider struct {
