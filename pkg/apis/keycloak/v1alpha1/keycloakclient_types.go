@@ -13,6 +13,40 @@ type KeycloakClientSpec struct {
 	// Keycloak Client REST object.
 	// +kubebuilder:validation:Required
 	Client *KeycloakAPIClient `json:"client"`
+	// Client Roles
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	Roles []RoleRepresentation `json:"roles,omitempty"`
+	// Scope Mappings
+	// +optional
+	ScopeMappings *MappingsRepresentation `json:"scopeMappings,omitempty"`
+}
+
+// https://www.keycloak.org/docs-api/11.0/rest-api/index.html#_mappingsrepresentation
+type MappingsRepresentation struct {
+	// Client Mappings
+	// +optional
+	ClientMappings map[string]ClientMappingsRepresentation `json:"clientMappings,omitempty"`
+
+	// Realm Mappings
+	// +optional
+	RealmMappings []RoleRepresentation `json:"realmMappings,omitempty"`
+}
+
+// https://www.keycloak.org/docs-api/11.0/rest-api/index.html#_clientmappingsrepresentation
+type ClientMappingsRepresentation struct {
+	// Client
+	// +optional
+	Client string `json:"client,omitempty"`
+
+	// ID
+	// +optional
+	ID string `json:"id,omitempty"`
+
+	// Mappings
+	// +optional
+	Mappings []RoleRepresentation `json:"mappings,omitempty"`
 }
 
 type KeycloakAPIClient struct {
@@ -93,7 +127,7 @@ type KeycloakAPIClient struct {
 	Attributes map[string]string `json:"attributes,omitempty"`
 	// True if Full Scope is allowed.
 	// +optional
-	FullScopeAllowed bool `json:"fullScopeAllowed,omitempty"`
+	FullScopeAllowed *bool `json:"fullScopeAllowed,omitempty"`
 	// Node registration timeout.
 	// +optional
 	NodeReRegistrationTimeout int `json:"nodeReRegistrationTimeout,omitempty"`
@@ -163,6 +197,7 @@ type KeycloakClientStatus struct {
 }
 
 // KeycloakClient is the Schema for the keycloakclients API.
+// +genclient
 // +k8s:openapi-gen=true
 // +kubebuilder:subresource:status
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

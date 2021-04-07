@@ -315,12 +315,39 @@ func schema_pkg_apis_keycloak_v1alpha1_KeycloakClientSpec(ref common.ReferenceCa
 							Ref:         ref("./pkg/apis/keycloak/v1alpha1.KeycloakAPIClient"),
 						},
 					},
+					"roles": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"name",
+								},
+								"x-kubernetes-list-type": "map",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Client Roles",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("./pkg/apis/keycloak/v1alpha1.RoleRepresentation"),
+									},
+								},
+							},
+						},
+					},
+					"scopeMappings": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Scope Mappings",
+							Ref:         ref("./pkg/apis/keycloak/v1alpha1.MappingsRepresentation"),
+						},
+					},
 				},
 				Required: []string{"realmSelector", "client"},
 			},
 		},
 		Dependencies: []string{
-			"./pkg/apis/keycloak/v1alpha1.KeycloakAPIClient", "k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"},
+			"./pkg/apis/keycloak/v1alpha1.KeycloakAPIClient", "./pkg/apis/keycloak/v1alpha1.MappingsRepresentation", "./pkg/apis/keycloak/v1alpha1.RoleRepresentation", "k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"},
 	}
 }
 
@@ -452,6 +479,11 @@ func schema_pkg_apis_keycloak_v1alpha1_KeycloakRealmSpec(ref common.ReferenceCal
 						},
 					},
 					"realmOverrides": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
 						SchemaProps: spec.SchemaProps{
 							Description: "A list of overrides to the default Realm behavior.",
 							Type:        []string{"array"},
@@ -632,11 +664,17 @@ func schema_pkg_apis_keycloak_v1alpha1_KeycloakSpec(ref common.ReferenceCallback
 							Format:      "",
 						},
 					},
+					"multiAvailablityZones": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Specify PodAntiAffinity settings for Keycloak deployment in Multi AZ",
+							Ref:         ref("./pkg/apis/keycloak/v1alpha1.MultiAvailablityZonesConfig"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"./pkg/apis/keycloak/v1alpha1.KeycloakDeploymentSpec", "./pkg/apis/keycloak/v1alpha1.KeycloakExternal", "./pkg/apis/keycloak/v1alpha1.KeycloakExternalAccess", "./pkg/apis/keycloak/v1alpha1.KeycloakExternalDatabase", "./pkg/apis/keycloak/v1alpha1.MigrateConfig", "./pkg/apis/keycloak/v1alpha1.PodDisruptionBudgetConfig", "./pkg/apis/keycloak/v1alpha1.PostgresqlDeploymentSpec"},
+			"./pkg/apis/keycloak/v1alpha1.KeycloakDeploymentSpec", "./pkg/apis/keycloak/v1alpha1.KeycloakExternal", "./pkg/apis/keycloak/v1alpha1.KeycloakExternalAccess", "./pkg/apis/keycloak/v1alpha1.KeycloakExternalDatabase", "./pkg/apis/keycloak/v1alpha1.MigrateConfig", "./pkg/apis/keycloak/v1alpha1.MultiAvailablityZonesConfig", "./pkg/apis/keycloak/v1alpha1.PodDisruptionBudgetConfig", "./pkg/apis/keycloak/v1alpha1.PostgresqlDeploymentSpec"},
 	}
 }
 

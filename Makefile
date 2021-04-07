@@ -4,8 +4,6 @@ PROJECT=keycloak-operator
 PKG=github.com/keycloak/keycloak-operator
 OPERATOR_SDK_VERSION=v0.18.2
 OPERATOR_SDK_DOWNLOAD_URL=https://github.com/operator-framework/operator-sdk/releases/download/$(OPERATOR_SDK_VERSION)/operator-sdk-$(OPERATOR_SDK_VERSION)-x86_64-linux-gnu
-MINIKUBE_DOWNLOAD_URL=https://github.com/kubernetes/minikube/releases/download/v1.9.2/minikube-linux-amd64
-KUBECTL_DOWNLOAD_URL=https://storage.googleapis.com/kubernetes-release/release/v1.18.0/bin/linux/amd64/kubectl
 
 # Compile constants
 COMPILE_TARGET=./tmp/_output/bin/$(PROJECT)
@@ -29,13 +27,12 @@ cluster/prepare:
 
 .PHONY: cluster/clean
 cluster/clean:
-	@kubectl get all -n $(NAMESPACE) --no-headers=true -o name | xargs kubectl delete -n $(NAMESPACE) || true
-	@kubectl get roles,rolebindings,serviceaccounts keycloak-operator -n $(NAMESPACE) --no-headers=true -o name | xargs kubectl delete -n $(NAMESPACE) || true
-	@kubectl get pv,pvc -n $(NAMESPACE) --no-headers=true -o name | xargs kubectl delete -n $(NAMESPACE) || true
-	# Remove all CRDS with keycloak.org in the name
-	@kubectl get crd --no-headers=true -o name | awk '/keycloak.org/{print $1}' | xargs kubectl delete || true
+	@kubectl delete -f deploy/service_account.yaml -n $(NAMESPACE) || true
+	@kubectl delete -f deploy/role_binding.yaml -n $(NAMESPACE) || true
+	@kubectl delete -f deploy/role.yaml -n $(NAMESPACE) || true
 	@kubectl delete namespace $(NAMESPACE) || true
-
+	@kubectl delete -f deploy/crds/ || true
+	
 .PHONY: cluster/clean/monitoring
 cluster/clean/monitoring:
 	@kubectl delete -n $(NAMESPACE) --all blackboxtargets
@@ -51,12 +48,13 @@ cluster/clean/monitoring:
 
 .PHONY: cluster/prepare/monitoring
 cluster/prepare/monitoring:
+	oc label namespace $(NAMESPACE) "monitoring-key=middleware"
 	$(eval _OS_PROMETHEUS_USER=$(shell oc get secrets -n openshift-monitoring grafana-datasources -o 'go-template={{index .data "prometheus.yaml"}}' | base64 --decode | jq -r '.datasources[0].basicAuthUser'))
 	$(eval _OS_PROMETHEUS_PASS=$(shell oc get secrets -n openshift-monitoring grafana-datasources -o 'go-template={{index .data "prometheus.yaml"}}' | base64 --decode | jq -r '.datasources[0].basicAuthPassword'))
 	kubectl label namespace $(NAMESPACE) monitoring-key=middleware || true
 	git clone --depth=1  git@github.com:integr8ly/application-monitoring-operator.git /tmp/keycloak-operator || true
 	$(MAKE) -C /tmp/keycloak-operator cluster/install
-	cat ./rhsso-operator/monitoring/federation.yaml | sed -e 's/<user>/'"$(_OS_PROMETHEUS_USER)"'/g' | \
+	cat ./deploy/examples/monitoring/federation.yaml | sed -e 's/<user>/'"$(_OS_PROMETHEUS_USER)"'/g' | \
 		sed -e 's@<pass>@'"$(_OS_PROMETHEUS_PASS)"'@g' > /tmp/keycloak-operator/integreatly-additional.yaml || true
 	kubectl create secret generic integreatly-additional-scrape-configs --from-file=/tmp/keycloak-operator/integreatly-additional.yaml --dry-run=client -o yaml | kubectl apply -n application-monitoring -f -
 	rm -rf /tmp/keycloak-operator/
@@ -95,7 +93,7 @@ test/e2e-local-image: cluster/prepare setup/operator-sdk
 	@echo Running e2e tests with a fresh built operator image in the cluster:
 	docker build . -t keycloak-operator:test
 	@echo Running tests:
-	operator-sdk test local --go-test-flags "-tags=integration -coverpkg ./... -coverprofile cover-e2e.coverprofile -covermode=count -timeout 0" --image="keycloak-operator:test" --namespace $(NAMESPACE) --up-local --debug --verbose ./test/e2e
+	operator-sdk test local --go-test-flags "-tags=integration -coverpkg ./... -coverprofile cover-e2e.coverprofile -covermode=count -timeout 0" --image="keycloak-operator:test" --operator-namespace $(NAMESPACE) --up-local --debug --verbose ./test/e2e
 
 .PHONY: test/coverage/prepare
 test/coverage/prepare:
@@ -154,7 +152,7 @@ code/compile:
 	@GOOS=${GOOS} GOARCH=${GOARCH} CGO_ENABLED=${CGO_ENABLED} go build -o=$(COMPILE_TARGET) -mod=vendor ./cmd/manager
 
 .PHONY: code/gen
-code/gen:
+code/gen: client/gen
 	operator-sdk generate k8s
 	operator-sdk generate crds --crd-version v1beta1
 	# This is a copy-paste part of `operator-sdk generate openapi` command (suggested by the manual)
@@ -179,21 +177,17 @@ code/lint:
 	@echo "--> Running golangci-lint"
 	@$(shell go env GOPATH)/bin/golangci-lint run --timeout 10m
 
-##############################
-# CI                         #
-##############################
-.PHONY: setup/github
-setup/github:
-	@echo Installing Kubectl
-	@curl -Lo kubectl ${KUBECTL_DOWNLOAD_URL} && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
-	@echo Installing Minikube
-	@curl -Lo minikube ${MINIKUBE_DOWNLOAD_URL} && chmod +x minikube && sudo mv minikube /usr/local/bin/
-	@echo Booting Minikube up, see Travis env. variables for more information
-	@mkdir -p $HOME/.kube $HOME/.minikube
-	@touch $KUBECONFIG
-	@sudo minikube start --vm-driver=none
-	@sudo ./hack/modify_etc_hosts.sh "keycloak.local"
-	@sudo minikube addons enable ingress
+.PHONY: client/gen
+client/gen:
+	@echo "--> Running code-generator to generate clients"
+	# prepare tool code-generator
+	@mkdir -p ./tmp/code-generator
+	@git clone https://github.com/kubernetes/code-generator.git --branch v0.21.0-alpha.2 --single-branch  ./tmp/code-generator
+	# generate client
+	./tmp/code-generator/generate-groups.sh "client,informer,lister" github.com/keycloak/keycloak-operator/pkg/client github.com/keycloak/keycloak-operator/pkg/apis keycloak:v1alpha1 --output-base ./tmp --go-header-file ./hack/boilerplate.go.txt
+	# check generated client at ./pkg/client
+	@cp -r ./tmp/github.com/keycloak/keycloak-operator/pkg/client/* ./pkg/client/
+	@rm -rf ./tmp/github.com ./tmp/code-generator
 
 .PHONY: test/goveralls
 test/goveralls: test/coverage/prepare

@@ -40,6 +40,7 @@ func (i *KeycloakReconciler) Reconcile(clusterState *common.ClusterState, cr *kc
 
 	desired = desired.AddAction(i.getKeycloakServiceDesiredState(clusterState, cr))
 	desired = desired.AddAction(i.getKeycloakDiscoveryServiceDesiredState(clusterState, cr))
+	desired = desired.AddAction(i.getKeycloakMonitoringServiceDesiredState(clusterState, cr))
 	desired = desired.AddAction(i.GetKeycloakProbesDesiredState(clusterState, cr))
 	desired = desired.AddAction(i.getKeycloakDeploymentOrRHSSODesiredState(clusterState, cr))
 	i.reconcileExternalAccess(&desired, clusterState, cr)
@@ -77,10 +78,11 @@ func (i *KeycloakReconciler) reconcileExternalAccess(desired *common.DesiredClus
 	// Find out if we're on OpenShift or Kubernetes and create either a Route or
 	// an Ingress
 	stateManager := common.GetStateManager()
-	openshift, keyExists := stateManager.GetState(common.RouteKind).(bool)
+	openshift, keyExists := stateManager.GetState(common.OpenShiftAPIServerKind).(bool)
 
 	if keyExists && openshift {
 		desired.AddAction(i.getKeycloakRouteDesiredState(clusterState, cr))
+		desired.AddAction(i.getKeycloakMetricsRouteDesiredState(clusterState, cr))
 	} else {
 		desired.AddAction(i.getKeycloakIngressDesiredState(clusterState, cr))
 	}
@@ -142,7 +144,12 @@ func (i *KeycloakReconciler) getPostgresqlServiceDesiredState(clusterState *comm
 }
 
 func (i *KeycloakReconciler) getPostgresqlDeploymentDesiredState(clusterState *common.ClusterState, cr *kc.Keycloak) common.ClusterAction {
-	postgresqlDeployment := model.PostgresqlDeployment(cr)
+	// Find out if we're on OpenShift or Kubernetes
+	stateManager := common.GetStateManager()
+	isOpenshift, _ := stateManager.GetState(common.OpenShiftAPIServerKind).(bool)
+
+	postgresqlDeployment := model.PostgresqlDeployment(cr, isOpenshift)
+
 	if clusterState.PostgresqlDeployment == nil {
 		return common.GenericCreateAction{
 			Ref: postgresqlDeployment,
@@ -182,6 +189,28 @@ func (i *KeycloakReconciler) getKeycloakDiscoveryServiceDesiredState(clusterStat
 	return common.GenericUpdateAction{
 		Ref: model.KeycloakDiscoveryServiceReconciled(cr, clusterState.KeycloakDiscoveryService),
 		Msg: "Update keycloak Discovery Service",
+	}
+}
+
+func (i *KeycloakReconciler) getKeycloakMonitoringServiceDesiredState(clusterState *common.ClusterState, cr *kc.Keycloak) common.ClusterAction {
+	stateManager := common.GetStateManager()
+	resourceWatchExists, keyExists := stateManager.GetState(common.GetStateFieldName(ControllerName, monitoringv1.ServiceMonitorsKind)).(bool)
+	// Only add or update the monitoring resources if the resource type exists on the cluster. These booleans are set in the common/autodetect logic
+	if !keyExists || !resourceWatchExists {
+		return nil
+	}
+
+	keycloakMonitoringService := model.KeycloakMonitoringService(cr)
+
+	if clusterState.KeycloakMonitoringService == nil {
+		return common.GenericCreateAction{
+			Ref: keycloakMonitoringService,
+			Msg: "Create Keycloak Monitoring Service",
+		}
+	}
+	return common.GenericUpdateAction{
+		Ref: model.KeycloakMonitoringServiceReconciled(cr, clusterState.KeycloakMonitoringService),
+		Msg: "Update keycloak Monitoring Service",
 	}
 }
 
@@ -310,6 +339,24 @@ func (i *KeycloakReconciler) getKeycloakRouteDesiredState(clusterState *common.C
 	return common.GenericUpdateAction{
 		Ref: model.KeycloakRouteReconciled(cr, clusterState.KeycloakRoute),
 		Msg: "Update Keycloak Route",
+	}
+}
+
+func (i *KeycloakReconciler) getKeycloakMetricsRouteDesiredState(clusterState *common.ClusterState, cr *kc.Keycloak) common.ClusterAction {
+	if clusterState.KeycloakRoute == nil {
+		return nil
+	}
+
+	if clusterState.KeycloakMetricsRoute == nil {
+		return common.GenericCreateAction{
+			Ref: model.KeycloakMetricsRoute(cr, clusterState.KeycloakRoute),
+			Msg: "Create Keycloak Metrics Route",
+		}
+	}
+
+	return common.GenericUpdateAction{
+		Ref: model.KeycloakMetricsRouteReconciled(cr, clusterState.KeycloakMetricsRoute, clusterState.KeycloakRoute),
+		Msg: "Update Keycloak Metrics Route",
 	}
 }
 

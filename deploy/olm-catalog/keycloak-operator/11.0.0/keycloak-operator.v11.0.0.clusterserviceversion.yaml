@@ -353,4 +353,4 @@ spec:
   provider:
     name: Red Hat
   version: 11.0.0
-  replaces: keycloak-operator.v10.0.2
+  replaces: keycloak-operator.v10.0.0

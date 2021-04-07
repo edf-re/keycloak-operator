@@ -7,6 +7,9 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"time"
+
+	"github.com/keycloak/keycloak-operator/pkg/k8sutil"
 
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 
@@ -14,6 +17,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/keycloak/keycloak-operator/pkg/common"
+
 	routev1 "github.com/openshift/api/route/v1"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -26,7 +30,6 @@ import (
 	monitoringv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	grafanav1alpha1 "github.com/integr8ly/grafana-operator/v3/pkg/apis/integreatly/v1alpha1"
 
-	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	kubemetrics "github.com/operator-framework/operator-sdk/pkg/kube-metrics"
 	"github.com/operator-framework/operator-sdk/pkg/leader"
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
@@ -102,10 +105,13 @@ func main() {
 		os.Exit(1)
 	}
 
+	syncPeriod := time.Minute * 5
+
 	// Set default manager options
 	options := manager.Options{
 		Namespace:          namespace,
 		MetricsBindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
+		SyncPeriod:         &syncPeriod,
 	}
 
 	// Add support for MultiNamespace set in WATCH_NAMESPACE (e.g ns1,ns2)
@@ -159,7 +165,7 @@ func main() {
 	}
 
 	// Setup all Controllers
-	if err := controller.AddToManager(mgr, autodetect.SubscriptionChannel); err != nil {
+	if err := controller.AddToManager(mgr); err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}

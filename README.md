@@ -12,7 +12,7 @@ The official documentation might be found in the [here](https://www.keycloak.org
 
 * [Keycloak documentation](https://www.keycloak.org/documentation.html)
 * [User Mailing List](https://lists.jboss.org/mailman/listinfo/keycloak-user) - Mailing list for help and general questions about Keycloak
-* [JIRA](https://issues.jboss.org/projects/KEYCLOAK) - Issue tracker for bugs and feature requests
+* [JIRA](https://issues.redhat.com/browse/KEYCLOAK-16220?jql=project%20%3D%20KEYCLOAK%20AND%20component%20%3D%20%22Container%20-%20Operator%22%20ORDER%20BY%20updated%20DESC) - Issue tracker for bugs and feature requests
 
 ## Reporting Security Vulnerabilities
 
@@ -31,7 +31,19 @@ Please remember to provide a good summary, description as well as steps to repro
 | [KeycloakClient](./deploy/crds/keycloak.org_keycloakclients_crd.yaml) | Represents a client in a keycloak server                 |
 | [KeycloakBackup](./deploy/crds/keycloak.org_keycloakbackups_crd.yaml) | Manage Keycloak database backups                         |
 
-## Deploying to a Cluster
+
+## Deployment to a Kubernetes or Openshift cluster
+
+The official documentation contains installation instruction for this Operator.
+
+[Getting started with keycloak-operator on Openshift](https://www.keycloak.org/getting-started/getting-started-operator-openshift)
+
+[Getting started with keycloak-operator on Kubernetes](https://www.keycloak.org/getting-started/getting-started-operator-kubernetes)
+
+[Operator installation](https://www.keycloak.org/docs/latest/server_installation/index.html#_installing-operator)
+
+
+## Developer Reference
 *Note*: You will need a running Kubernetes or OpenShift cluster to use the Operator
 
 1. Run `make cluster/prepare` # This will apply the necessary Custom Resource Definitions (CRDs) and RBAC rules to the clusters
@@ -40,9 +52,7 @@ Please remember to provide a good summary, description as well as steps to repro
 ### Creating Keycloak Instance
 Once the CRDs and RBAC rules are applied and the operator is running. Use the examples from the operator.
 
-1. Run `kubectl apply -f deploy/examples/keycloak/keycloak.yaml` 
-
-## Building from Source
+1. Run `kubectl apply -f deploy/examples/keycloak/keycloak.yaml`
 
 ### Local Development
 *Note*: You will need a running Kubernetes or OpenShift cluster to use the Operator
@@ -99,7 +109,7 @@ Debug the operator in [VS Code](https://code.visualstudio.com/docs/languages/go)
   "args": []
 }
 ```
-3. Debug Keycloak Operator 
+3. Debug Keycloak Operator
 
 #### Alternative Step 3: Deploying to a Cluster
 Deploy the operator into the running cluster
@@ -157,6 +167,7 @@ Please bear in mind this is intended to be used for internal purposes as there's
 | `make code/check`         | Checks for linting errors in the code                                            |
 | `make code/fix`           | Formats code using [gofmt](https://golang.org/cmd/gofmt/)                        |
 | `make code/lint`          | Checks for linting errors in the code                                            |
+| `make client/gen`         | Generates/Updates the clients bases on the CR status and spec definitions        |
 
 #### Application Monitoring
 
@@ -181,7 +192,7 @@ All images used by the Operator might be controlled using dedicated Environmenta
  | `RHSSO` for OpenJ9  | `RELATED_IMAGE_RHSSO_OPENJ9`            | `registry.redhat.io/rh-sso-7/sso74-openshift-rhel8:7.4-1`        |
  | `RHSSO` for OpenJDK | `RELATED_IMAGE_RHSSO_OPENJDK`           | `registry.redhat.io/rh-sso-7/sso74-openshift-rhel8:7.4-1`        |
  | Init container      | `RELATED_IMAGE_KEYCLOAK_INIT_CONTAINER` | `quay.io/keycloak/keycloak-init-container:master`                |
- | Backup container    | `RELATED_IMAGE_RHMI_BACKUP_CONTAINER`   | `quay.io/integreatly/backup-container:1.0.10`                    |
+ | Backup container    | `RELATED_IMAGE_RHMI_BACKUP_CONTAINER`   | `quay.io/integreatly/backup-container:1.0.16`                    |
  | Postgresql          | `RELATED_IMAGE_POSTGRESQL`              | `registry.redhat.io/rhel8/postgresql-10:1`                       |
 
 ## Contributing
